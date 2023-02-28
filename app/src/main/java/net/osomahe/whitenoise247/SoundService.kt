@@ -24,7 +24,7 @@ class SoundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        mediaPlayer = MediaPlayer.create(this, R.raw.noise)
+        mediaPlayer = MediaPlayer.create(this, R.raw.noise_full)
         mediaPlayer.isLooping = true
         mediaPlayer.setVolume(1.0f, 1.0f)
 

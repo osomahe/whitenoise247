@@ -24,7 +24,7 @@ class SoundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        mediaPlayer = MediaPlayer.create(this, R.raw.whitenoise)
+        mediaPlayer = MediaPlayer.create(this, R.raw.noise)
         mediaPlayer.isLooping = true
         mediaPlayer.setVolume(1.0f, 1.0f)
 
@@ -33,8 +33,15 @@ class SoundService : Service() {
 
         val pendingIntent =
             PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
-
-        val notification = NotificationCompat.Builder(this, "wn_service").setOngoing(true)
+        val channelId =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                createNotificationChannel("wn_service", "White Noise 247")
+            } else {
+                // If earlier version channel ID is not used
+                // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
+                ""
+            }
+        val notification = NotificationCompat.Builder(this, channelId).setOngoing(true)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setCategory(Notification.CATEGORY_SERVICE)
@@ -44,22 +51,6 @@ class SoundService : Service() {
         startForeground(101, notification)
     }
 
-    /*
-    val notificationId = 1 // unique notification ID
-    val channelId = "my_channel_id" // unique channel ID for the notification
-    val intent = Intent(this, MyActivity::class.java) // intent to launch when the button is clicked
-    val pendingIntent = PendingIntent.getActivity(this, 0, intent, 0) // pending intent for the button
-    val action = NotificationCompat.Action.Builder(R.drawable.ic_action_name, "Button Text", pendingIntent).build() // create the button action
-    val notification = NotificationCompat.Builder(this, channelId)
-        .setSmallIcon(R.drawable.ic_notification_icon)
-        .setContentTitle("Notification Title")
-        .setContentText("Notification Text")
-        .addAction(action) // add the button action to the notification
-        .build()
-    val notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager // get the notification manager
-    notificationManager.notify(notificationId, notification) // show the notification
-
-     */
     @RequiresApi(Build.VERSION_CODES.O)
     private fun createNotificationChannel(channelId: String, channelName: String): String {
         val chan = NotificationChannel(

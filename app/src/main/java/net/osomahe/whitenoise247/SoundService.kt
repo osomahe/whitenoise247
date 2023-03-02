@@ -10,9 +10,12 @@ import android.content.Intent
 import android.graphics.Color
 import android.media.MediaPlayer
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 
 
 class SoundService : Service() {
@@ -22,8 +25,10 @@ class SoundService : Service() {
 
     private lateinit var mediaPlayer: MediaPlayer
 
+    private lateinit var startTime: LocalDateTime
     override fun onCreate() {
         super.onCreate()
+        startTime = LocalDateTime.now()
         mediaPlayer = MediaPlayer.create(this, R.raw.noise_full)
         mediaPlayer.isLooping = true
         mediaPlayer.setVolume(1.0f, 1.0f)
@@ -41,14 +46,36 @@ class SoundService : Service() {
                 // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
                 ""
             }
-        val notification = NotificationCompat.Builder(this, channelId).setOngoing(true)
+        val builder = NotificationCompat.Builder(this, channelId).setOngoing(true)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setContentTitle("White Noise 247")
+            .setContentText("Running: ${runningTimeToString()}")
             .addAction(R.raw.stop, "Stop", pendingIntent)
-            .build()
-        startForeground(101, notification)
+
+        val notificationManager =
+            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val handler = Handler()
+        val runnable = object : Runnable {
+            override fun run() {
+                builder.setContentText("Running: ${runningTimeToString()}")
+                notificationManager.notify(101, builder.build())
+                handler.postDelayed(this, 1000)
+            }
+        }
+        handler.postDelayed(runnable, 1000)
+        startForeground(101, builder.build())
+    }
+
+    private fun runningTimeToString(): String {
+        val differenceSecs = ChronoUnit.SECONDS.between(startTime, LocalDateTime.now())
+        val hours = differenceSecs / 3_600
+        val minutes = (differenceSecs - hours * 3_600) / 60
+        val minutesString = if (minutes < 10) "0$minutes" else minutes
+        val seconds = differenceSecs - hours * 3_600 - minutes * 60
+        val secondsString = if (seconds < 10) "0$seconds" else seconds
+        return "$hours:$minutesString:$secondsString"
     }
 
     @RequiresApi(Build.VERSION_CODES.O)

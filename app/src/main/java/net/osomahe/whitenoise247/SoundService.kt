@@ -16,6 +16,7 @@ import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
+import java.util.concurrent.CompletableFuture
 
 
 class SoundService : Service() {
@@ -24,13 +25,15 @@ class SoundService : Service() {
     }
 
     private lateinit var mediaPlayer: MediaPlayer
+    private lateinit var handler: Handler
+    private lateinit var runnable: Runnable
+    private var mediaPlayerSecond: MediaPlayer? = null
 
     private lateinit var startTime: LocalDateTime
     override fun onCreate() {
         super.onCreate()
         startTime = LocalDateTime.now()
-        mediaPlayer = MediaPlayer.create(this, R.raw.noise_full)
-        mediaPlayer.isLooping = true
+        mediaPlayer = MediaPlayer.create(this, R.raw.noise_5min)
         mediaPlayer.setVolume(1.0f, 1.0f)
 
         val intent = Intent(this, SoundService::class.java)
@@ -56,15 +59,14 @@ class SoundService : Service() {
 
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        val handler = Handler()
-        val runnable = object : Runnable {
+        handler = Handler()
+        runnable = object : Runnable {
             override fun run() {
                 builder.setContentText("Running: ${runningTimeToString()}")
                 notificationManager.notify(101, builder.build())
                 handler.postDelayed(this, 1000)
             }
         }
-        handler.postDelayed(runnable, 1000)
         startForeground(101, builder.build())
     }
 
@@ -94,21 +96,53 @@ class SoundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             STOP_ACTION -> {
+                handler.removeCallbacks(runnable)
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
             }
 
             else -> {
                 mediaPlayer.start()
+                handler.postDelayed(runnable, 1000)
+                startSecondPlayer()
             }
         }
         return START_STICKY
+    }
+
+    private fun startSecondPlayer() {
+        CompletableFuture.runAsync {
+            val timeToEnd = mediaPlayer.duration - mediaPlayer.currentPosition
+            // 210s = 100s to volume mediaPlayerSecond up + 100s to volume mediaPlayer down + stop mediaPlayer 10s before end
+            Thread.sleep(timeToEnd - 210_000L)
+            mediaPlayerSecond = MediaPlayer.create(this, R.raw.noise_5min)
+            var volume = 0f
+            mediaPlayerSecond?.setVolume(volume, volume)
+            mediaPlayerSecond?.start()
+            while (volume < 1f) {
+                volume += 0.01f
+                mediaPlayerSecond?.setVolume(volume, volume)
+                Thread.sleep(1_000)
+            }
+            while (volume > 0f) {
+                volume -= 0.01f
+                mediaPlayer.setVolume(volume, volume)
+                Thread.sleep(1_000)
+            }
+            mediaPlayer.stop()
+            mediaPlayer.release()
+            mediaPlayer = mediaPlayerSecond as MediaPlayer
+            mediaPlayerSecond = null
+            startSecondPlayer()
+        }
     }
 
     override fun onDestroy() {
         super.onDestroy()
         mediaPlayer.stop()
         mediaPlayer.release()
+        mediaPlayerSecond?.stop()
+        mediaPlayerSecond?.release()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

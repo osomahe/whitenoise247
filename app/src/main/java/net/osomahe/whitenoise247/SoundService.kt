@@ -28,6 +28,7 @@ class SoundService : Service() {
     private lateinit var handler: Handler
     private lateinit var runnable: Runnable
     private var mediaPlayerSecond: MediaPlayer? = null
+    private var futureMediaPlayerSecond: CompletableFuture<Void>? = null;
 
     private lateinit var startTime: LocalDateTime
     override fun onCreate() {
@@ -111,7 +112,7 @@ class SoundService : Service() {
     }
 
     private fun startSecondPlayer() {
-        CompletableFuture.runAsync {
+        futureMediaPlayerSecond = CompletableFuture.runAsync {
             val timeToEnd = mediaPlayer.duration - mediaPlayer.currentPosition
             // 210s = 100s to volume mediaPlayerSecond up + 100s to volume mediaPlayer down + stop mediaPlayer 10s before end
             Thread.sleep(timeToEnd - 210_000L)
@@ -143,6 +144,7 @@ class SoundService : Service() {
         mediaPlayer.release()
         mediaPlayerSecond?.stop()
         mediaPlayerSecond?.release()
+        futureMediaPlayerSecond?.cancel(true);
     }
 
     override fun onBind(intent: Intent?): IBinder? {

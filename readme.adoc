@@ -1,0 +1,23 @@
+= White Noise 247
+
+The app play white noise. It has no UI. When open it starts playing white noise and could be stop via action button in notification.
+
+== Releases
+
+=== 23.03.03 (4) Fix stopping
+
+* fix stopping
+
+=== 23.03.02 (3) First official release
+
+* white noise without noticeable pause
+* playing duration in notification
+
+=== 23.03.01 (2) Simple working
+
+* one loop is 3 hours
+* fix notification for Android 9
+
+=== 23.02.01 (1) First release
+
+ * plays white noise

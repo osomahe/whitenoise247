@@ -11,8 +11,8 @@ android {
         applicationId "net.osomahe.whitenoise247"
         minSdk 28
         targetSdk 33
-        versionCode 3
-        versionName "23.03.02"
+        versionCode 4
+        versionName "23.03.03"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

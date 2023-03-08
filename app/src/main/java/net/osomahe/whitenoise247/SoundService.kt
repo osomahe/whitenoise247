@@ -12,8 +12,14 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.CompletableFuture
@@ -24,11 +30,14 @@ class SoundService : Service() {
         const val STOP_ACTION = "net.osomahe.whitenoise247.STOP"
     }
 
+
+    private val serviceScope = CoroutineScope(Dispatchers.Default)
+    private var jobMediaPlayerSecond: Job? = null
+
     private lateinit var mediaPlayer: MediaPlayer
     private lateinit var handler: Handler
     private lateinit var runnable: Runnable
     private var mediaPlayerSecond: MediaPlayer? = null
-    private var futureMediaPlayerSecond: CompletableFuture<Void>? = null;
 
     private lateinit var startTime: LocalDateTime
     override fun onCreate() {
@@ -105,35 +114,45 @@ class SoundService : Service() {
             else -> {
                 mediaPlayer.start()
                 handler.postDelayed(runnable, 1000)
-                startSecondPlayer()
+                jobMediaPlayerSecond = serviceScope.launch {
+                    startSecondPlayer()
+                }
             }
         }
         return START_STICKY
     }
 
-    private fun startSecondPlayer() {
-        futureMediaPlayerSecond = CompletableFuture.runAsync {
-            val timeToEnd = mediaPlayer.duration - mediaPlayer.currentPosition
-            // 210s = 100s to volume mediaPlayerSecond up + 100s to volume mediaPlayer down + stop mediaPlayer 10s before end
-            Thread.sleep(timeToEnd - 210_000L)
-            mediaPlayerSecond = MediaPlayer.create(this, R.raw.noise_5min)
-            var volume = 0f
-            mediaPlayerSecond?.setVolume(volume, volume)
-            mediaPlayerSecond?.start()
-            while (volume < 1f) {
-                volume += 0.01f
-                mediaPlayerSecond?.setVolume(volume, volume)
-                Thread.sleep(1_000)
-            }
-            while (volume > 0f) {
-                volume -= 0.01f
-                mediaPlayer.setVolume(volume, volume)
-                Thread.sleep(1_000)
-            }
-            mediaPlayer.stop()
-            mediaPlayer.release()
-            mediaPlayer = mediaPlayerSecond as MediaPlayer
-            mediaPlayerSecond = null
+    private suspend fun startSecondPlayer() {
+        Log.v("SoundService", "Starting new second MediaPLayer")
+        val timeToEnd = mediaPlayer.duration - mediaPlayer.currentPosition
+        Log.v("SoundService", "Time to end main media player: ${timeToEnd / 1_000}s")
+        // 210s = 100s to volume mediaPlayerSecond up + 100s to volume mediaPlayer down + stop mediaPlayer 10s before end
+        delay(timeToEnd - 210_000L)
+        Log.v("SoundService", "Creating new second MediaPLayer")
+        mediaPlayerSecond = MediaPlayer.create(this, R.raw.noise_5min)
+        var volume = 0
+        Log.v("SoundService", "Volume up volume: $volume%")
+        mediaPlayerSecond?.setVolume(0f, 0f)
+        mediaPlayerSecond?.start()
+        while (volume < 100) {
+            volume += 1
+            mediaPlayerSecond?.setVolume(volume / 100f, volume / 100f)
+            Log.v("SoundService", "Volume up volume: $volume%")
+            delay(1_000)
+        }
+        while (volume > 0) {
+            volume -= 1
+            mediaPlayer.setVolume(volume / 100f, volume / 100f)
+            Log.v("SoundService", "Volume down volume: $volume%")
+            delay(1_000)
+        }
+        Log.v("SoundService", "Promote second MediaPLayer to main")
+        mediaPlayer.stop()
+        mediaPlayer.release()
+        mediaPlayer = mediaPlayerSecond as MediaPlayer
+        mediaPlayerSecond = null
+        Log.v("SoundService", "Plan execution of second MediaPlayer")
+        jobMediaPlayerSecond = serviceScope.launch {
             startSecondPlayer()
         }
     }
@@ -144,7 +163,7 @@ class SoundService : Service() {
         mediaPlayer.release()
         mediaPlayerSecond?.stop()
         mediaPlayerSecond?.release()
-        futureMediaPlayerSecond?.cancel(true);
+        jobMediaPlayerSecond?.cancel()
     }
 
     override fun onBind(intent: Intent?): IBinder? {

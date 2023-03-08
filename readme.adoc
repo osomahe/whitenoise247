@@ -4,6 +4,10 @@ The app play white noise. It has no UI. When open it starts playing white noise 
 
 == Releases
 
+=== 23.03.04 (5) Coroutines
+
+* Use coroutines to handle background tasks
+
 === 23.03.03 (4) Fix stopping
 
 * fix stopping

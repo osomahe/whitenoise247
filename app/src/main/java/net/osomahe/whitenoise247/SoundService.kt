@@ -43,7 +43,7 @@ class SoundService : Service() {
     override fun onCreate() {
         super.onCreate()
         startTime = LocalDateTime.now()
-        mediaPlayer = MediaPlayer.create(this, R.raw.noise_5min)
+        mediaPlayer = MediaPlayer.create(this, R.raw.noise_10min)
         mediaPlayer.setVolume(1.0f, 1.0f)
 
         val intent = Intent(this, SoundService::class.java)
@@ -129,7 +129,7 @@ class SoundService : Service() {
         // 210s = 100s to volume mediaPlayerSecond up + 100s to volume mediaPlayer down + stop mediaPlayer 10s before end
         delay(timeToEnd - 210_000L)
         Log.v("SoundService", "Creating new second MediaPLayer")
-        mediaPlayerSecond = MediaPlayer.create(this, R.raw.noise_5min)
+        mediaPlayerSecond = MediaPlayer.create(this, R.raw.noise_10min)
         var volume = 0
         Log.v("SoundService", "Volume up volume: $volume%")
         mediaPlayerSecond?.setVolume(0f, 0f)

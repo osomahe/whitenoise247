@@ -22,14 +22,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
-import java.util.concurrent.CompletableFuture
 
 
 class SoundService : Service() {
     companion object {
         const val STOP_ACTION = "net.osomahe.whitenoise247.STOP"
     }
-
 
     private val serviceScope = CoroutineScope(Dispatchers.Default)
     private var jobMediaPlayerSecond: Job? = null
@@ -105,21 +103,30 @@ class SoundService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
-            STOP_ACTION -> {
-                handler.removeCallbacks(runnable)
-                stopForeground(STOP_FOREGROUND_REMOVE)
-                stopSelf()
-            }
-
+            STOP_ACTION -> stopPlayer()
             else -> {
-                mediaPlayer.start()
-                handler.postDelayed(runnable, 1000)
-                jobMediaPlayerSecond = serviceScope.launch {
-                    startSecondPlayer()
+                if (mediaPlayer.isPlaying || mediaPlayerSecond?.isPlaying == true) {
+                    stopPlayer()
+                } else {
+                    startPlayer()
                 }
             }
         }
         return START_STICKY
+    }
+
+    private fun stopPlayer() {
+        handler.removeCallbacks(runnable)
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
+    }
+
+    private fun startPlayer() {
+        mediaPlayer.start()
+        handler.postDelayed(runnable, 1000)
+        jobMediaPlayerSecond = serviceScope.launch {
+            startSecondPlayer()
+        }
     }
 
     private suspend fun startSecondPlayer() {

@@ -20,6 +20,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import net.osomahe.whitenoise247.db.DbFacade
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
@@ -29,6 +30,7 @@ class SoundService : Service() {
         const val STOP_ACTION = "net.osomahe.whitenoise247.STOP"
     }
 
+    private var noiseId: String? = null
     private val serviceScope = CoroutineScope(Dispatchers.Default)
     private var jobMediaPlayerSecond: Job? = null
 
@@ -116,6 +118,7 @@ class SoundService : Service() {
     }
 
     private fun stopPlayer() {
+        noiseId?.let { DbFacade.getInstance().endNoise(it) }
         handler.removeCallbacks(runnable)
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -127,6 +130,7 @@ class SoundService : Service() {
         jobMediaPlayerSecond = serviceScope.launch {
             startSecondPlayer()
         }
+        noiseId = DbFacade.getInstance().createNewNoise()
     }
 
     private suspend fun startSecondPlayer() {

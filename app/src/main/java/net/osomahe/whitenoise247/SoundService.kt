@@ -1,5 +1,6 @@
 package net.osomahe.whitenoise247
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -7,6 +8,7 @@ import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
 import android.graphics.Color
 import android.media.MediaPlayer
 import android.os.Build
@@ -23,9 +25,9 @@ import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
-
 class SoundService : Service() {
     companion object {
+
         const val STOP_ACTION = "net.osomahe.whitenoise247.STOP"
     }
 
@@ -38,44 +40,27 @@ class SoundService : Service() {
     private var mediaPlayerSecond: MediaPlayer? = null
 
     private lateinit var startTime: LocalDateTime
+    private var isServiceStarted = false
+    private lateinit var notificationBuilder: NotificationCompat.Builder
+    private lateinit var notificationManager: NotificationManager
+    
+    @SuppressLint("ForegroundServiceType")
     override fun onCreate() {
         super.onCreate()
         startTime = LocalDateTime.now()
         mediaPlayer = MediaPlayer.create(this, R.raw.noise_10min)
         mediaPlayer.setVolume(1.0f, 1.0f)
 
-        val intent = Intent(this, SoundService::class.java)
-        intent.action = STOP_ACTION
-
-        val pendingIntent =
-            PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+        // Create notification channel if needed
         val channelId =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 createNotificationChannel("wn_service", "White Noise 247")
             } else {
-                // If earlier version channel ID is not used
-                // https://developer.android.com/reference/android/support/v4/app/NotificationCompat.Builder.html#NotificationCompat.Builder(android.content.Context)
                 ""
             }
-        val builder = NotificationCompat.Builder(this, channelId).setOngoing(true)
-            .setSmallIcon(R.mipmap.ic_launcher)
-            .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setCategory(Notification.CATEGORY_SERVICE)
-            .setContentTitle("White Noise 247")
-            .setContentText("Running: ${runningTimeToString()}")
-            .addAction(R.raw.stop, "Stop", pendingIntent)
-
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        handler = Handler()
-        runnable = object : Runnable {
-            override fun run() {
-                builder.setContentText("Running: ${runningTimeToString()}")
-                notificationManager.notify(101, builder.build())
-                handler.postDelayed(this, 1000)
-            }
-        }
-        startForeground(101, builder.build())
+            
+        // Initialize notification manager
+        notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     }
 
     private fun runningTimeToString(): String {
@@ -104,7 +89,14 @@ class SoundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             STOP_ACTION -> stopPlayer()
+
             else -> {
+                if (!isServiceStarted) {
+                    // Start foreground service only once
+                    startForegroundService()
+                    isServiceStarted = true
+                }
+                
                 if (mediaPlayer.isPlaying || mediaPlayerSecond?.isPlaying == true) {
                     stopPlayer()
                 } else {
@@ -113,6 +105,43 @@ class SoundService : Service() {
             }
         }
         return START_STICKY
+    }
+    
+    private fun startForegroundService() {
+        val intent = Intent(this, SoundService::class.java)
+        intent.action = STOP_ACTION
+
+        val pendingIntent =
+            PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE)
+            
+        val channelId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            "wn_service"
+        } else {
+            ""
+        }
+        
+        notificationBuilder = NotificationCompat.Builder(this, channelId).setOngoing(true)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_MIN)
+            .setCategory(Notification.CATEGORY_SERVICE)
+            .setContentTitle("White Noise 247")
+            .setContentText("Running: ${runningTimeToString()}")
+            .addAction(android.R.drawable.ic_media_pause, "Stop", pendingIntent)
+
+        handler = Handler()
+        runnable = object : Runnable {
+            override fun run() {
+                notificationBuilder.setContentText("Running: ${runningTimeToString()}")
+                notificationManager.notify(101, notificationBuilder.build())
+                handler.postDelayed(this, 1000)
+            }
+        }
+        
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            startForeground(101, notificationBuilder.build())
+        } else {
+            startForeground(101, notificationBuilder.build(), FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+        }
     }
 
     private fun stopPlayer() {

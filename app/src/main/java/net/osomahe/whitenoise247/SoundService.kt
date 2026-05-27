@@ -14,6 +14,7 @@ import android.media.MediaPlayer
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.NotificationCompat
@@ -128,7 +129,7 @@ class SoundService : Service() {
             .setContentText("Running: ${runningTimeToString()}")
             .addAction(android.R.drawable.ic_media_pause, "Stop", pendingIntent)
 
-        handler = Handler()
+        handler = Handler(Looper.getMainLooper())
         runnable = object : Runnable {
             override fun run() {
                 notificationBuilder.setContentText("Running: ${runningTimeToString()}")
